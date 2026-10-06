@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Moon, Sun, Upload, FileText, CheckCircle2, AlertCircle, XCircle, Download, FileJson } from 'lucide-react';
 import { RequirementsData, UploadedFile, DocumentMatch, StatusType } from './types';
+import AIAssistant from './AIAssistant';
 
 export default function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -504,6 +505,7 @@ export default function App() {
           </div>
         )}
       </main>
+      <AIAssistant reqData={reqData} matches={matches} lang={lang} />
     </div>
   );
 }
