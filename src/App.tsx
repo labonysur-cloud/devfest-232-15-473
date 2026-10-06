@@ -32,7 +32,7 @@ export default function App() {
   };
 
   const t = {
-    title: lang === 'en' ? 'Tender Document Package Builder' : 'দরপত্র নথি প্যাকেজ নির্মাতা',
+    title: lang === 'en' ? 'Nothipath' : 'নথিপাঠ',
     uploadJson: lang === 'en' ? 'Upload requirements.json' : 'requirements.json আপলোড করুন',
     dark: lang === 'en' ? 'Dark Mode' : 'ডার্ক মোড',
     light: lang === 'en' ? 'Light Mode' : 'লাইট মোড',
