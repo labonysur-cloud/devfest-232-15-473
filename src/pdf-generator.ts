@@ -4,7 +4,8 @@ import { RequirementsData, UploadedFile, DocumentMatch } from './types';
 export async function generatePackage(
   reqData: RequirementsData,
   files: UploadedFile[],
-  matches: DocumentMatch[]
+  matches: DocumentMatch[],
+  signaturePngBase64?: string | null
 ): Promise<Uint8Array | null> {
   try {
     const pdfDoc = await PDFDocument.create();
@@ -96,7 +97,20 @@ export async function generatePackage(
         indexPage.drawText(entry.pageStr, { x: width - 120, y: entry.yPos, size: 12, font: timesRomanFont });
     }
 
-    // 4. Add footer to every page (including cover and index)
+    let embeddedSignature: any = null;
+    let sigDims: any = null;
+    
+    if (signaturePngBase64) {
+      try {
+        const pngImageBytes = Uint8Array.from(atob(signaturePngBase64.split(',')[1]), c => c.charCodeAt(0));
+        embeddedSignature = await pdfDoc.embedPng(pngImageBytes);
+        sigDims = embeddedSignature.scale(0.3); // Scale down the signature
+      } catch (err) {
+        console.error("Failed to embed signature:", err);
+      }
+    }
+
+    // 4. Add footer and signature to every page (including cover and index)
     const totalPages = pdfDoc.getPageCount();
     for (let i = 0; i < totalPages; i++) {
       const page = pdfDoc.getPage(i);
@@ -121,6 +135,15 @@ export async function generatePackage(
         font: timesRomanFont,
         color: rgb(0, 0, 0),
       });
+
+      if (embeddedSignature && sigDims) {
+        page.drawImage(embeddedSignature, {
+          x: pWidth - sigDims.width - 20,
+          y: 20,
+          width: sigDims.width,
+          height: sigDims.height,
+        });
+      }
     }
 
     return await pdfDoc.save();

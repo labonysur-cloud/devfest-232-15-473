@@ -17,6 +17,8 @@ Nothipath is a frontend-only web application built for the AI DevFest 2026 Vibe 
 * Intelligent Auto-Match: Automatically suggests and assigns uploaded documents to requirements based on filename keyword matching.
 * Export CSV Checklist: One-click export of the entire matched document checklist (including statuses and expiry dates) to a CSV file.
 * Dynamic Index Page: Generates an automatic Index Page right after the cover page, showing the exact page numbers where each document begins inside the final PDF package.
+* PNG Signature Embedding: Users can optionally upload a PNG signature, which is automatically scaled and applied to the top-right corner of every page in the final generated package.
+* Save and Reopen Project: Allows users to export their current mapping state (including signature and matches) to a `.nothipath` project file, which can be reloaded later without starting over.
 * Secure AI Assistant: A built-in AI helper using Groq (LLaMA-3 70B OSS equivalent) that securely accepts the user's own API key via the browser UI to offer tailored tender submission advice, perfectly fulfilling contest constraints.
 * Safe Error Handling: Gracefully catches corrupted or password-protected PDFs, showing clean error messages instead of crashing the application.
 

@@ -11,6 +11,7 @@ export default function App() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [matches, setMatches] = useState<DocumentMatch[]>([]);
   const [errorMsg, setErrorMsg] = useState<string>('');
+  const [signatureData, setSignatureData] = useState<string | null>(null);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
@@ -188,6 +189,19 @@ export default function App() {
     e.target.value = '';
   };
 
+  const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type === 'image/png') {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setSignatureData(event.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setErrorMsg(lang === 'en' ? 'Please upload a valid PNG image.' : 'অনুগ্রহ করে একটি বৈধ PNG ছবি আপলোড করুন।');
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans transition-colors">
       <header className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sticky top-0 z-10 shadow-sm">
@@ -197,6 +211,41 @@ export default function App() {
             <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
           </div>
           <div className="flex items-center gap-4">
+            <button
+              onClick={() => {
+                const data = JSON.stringify({ reqData, matches, signatureData });
+                const blob = new Blob([data], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Project_${reqData?.tender?.tender_id || 'Draft'}.nothipath`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              className="px-4 py-1.5 rounded-md bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 font-semibold hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors hidden sm:block"
+            >
+              {lang === 'en' ? 'Save Project' : 'প্রজেক্ট সেভ করুন'}
+            </button>
+            <label className="cursor-pointer px-4 py-1.5 rounded-md bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-semibold hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors hidden sm:block">
+              {lang === 'en' ? 'Load Project' : 'প্রজেক্ট লোড করুন'}
+              <input type="file" accept=".nothipath" className="hidden" onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  const reader = new FileReader();
+                  reader.onload = (ev) => {
+                    try {
+                      const data = JSON.parse(ev.target?.result as string);
+                      if (data.reqData) setReqData(data.reqData);
+                      if (data.matches) setMatches(data.matches);
+                      if (data.signatureData) setSignatureData(data.signatureData);
+                    } catch(err) {
+                      setErrorMsg("Failed to load project file.");
+                    }
+                  };
+                  reader.readAsText(file);
+                }
+              }} />
+            </label>
             <button
               onClick={toggleLang}
               className="px-4 py-1.5 rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
@@ -495,11 +544,27 @@ export default function App() {
                       </div>
                     )}
 
+                    <div className="mb-6 w-full max-w-md bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-4 rounded-xl flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-indigo-100 dark:bg-indigo-900/50 p-2 rounded-lg text-indigo-600 dark:text-indigo-400">
+                          <Upload className="w-5 h-5" />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-sm font-bold">{lang === 'en' ? 'Add Signature (Optional Bonus)' : 'স্বাক্ষর যোগ করুন (ঐচ্ছিক)'}</p>
+                          <p className="text-xs text-slate-500">{signatureData ? (lang === 'en' ? 'Signature attached' : 'স্বাক্ষর যুক্ত করা হয়েছে') : (lang === 'en' ? 'Upload PNG only' : 'শুধুমাত্র PNG আপলোড করুন')}</p>
+                        </div>
+                      </div>
+                      <label className="cursor-pointer px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg text-sm font-semibold transition-colors">
+                        {lang === 'en' ? (signatureData ? 'Change' : 'Upload') : (signatureData ? 'পরিবর্তন' : 'আপলোড')}
+                        <input type="file" accept="image/png" className="hidden" onChange={handleSignatureUpload} />
+                      </label>
+                    </div>
+
                     <button 
                       disabled={isBlocked}
                       onClick={async () => {
                         const { generatePackage } = await import('./pdf-generator');
-                        const pdfBytes = await generatePackage(reqData, files, matches);
+                        const pdfBytes = await generatePackage(reqData, files, matches, signatureData);
                         if (pdfBytes) {
                           const blob = new Blob([pdfBytes as BlobPart], { type: 'application/pdf' });
                           const url = URL.createObjectURL(blob);
