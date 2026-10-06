@@ -68,6 +68,13 @@ This project was actively vibe-coded and developed utilizing the following AI mo
 4. Access the application at the provided localhost port.
 5. Build for production using 'npm run build'.
 
+## AI Prompts Log
+In strict compliance with the contest rulebook, all AI prompts used to generate and modify code for this project are meticulously documented in the **Git Commit History**. Each commit message follows the format:
+`<Description of changes> | Prompt: "<Exact user prompt>"`
+
+## Known Issues
+* **None identified.** The application strictly handles all documented edge cases including duplicate file hashing (SHA-256), exact expiry date mathematics, missing mandatory fields, and gracefully catches corrupted PDFs.
+
 ## Author Information
 * Name: Labony Sur
 * Student ID: 232-15-473
