@@ -1,9 +1,9 @@
-# Nothipath
+# নথিপথ — Nothipath
 
 Live Application: https://nothipath-one.vercel.app/
 
 ## Overview
-Nothipath is a frontend-only web application built for the AI DevFest 2026 Vibe Coding Contest. It is designed to help users prepare, validate, and compile tender document packages based on a standardized JSON requirement list. The application operates entirely in the browser to ensure speed, privacy, and compliance with strict contest rules.
+নথিপথ — Nothipath is a frontend-only web application built for the AI DevFest 2026 Vibe Coding Contest. It is designed to help users prepare, validate, and compile tender document packages based on a standardized JSON requirement list. The application operates entirely in the browser to ensure speed, privacy, and compliance with strict contest rules.
 
 ## Core Features
 * Document Requirement Parsing: Upload and parse tender requirements from a structured JSON file.

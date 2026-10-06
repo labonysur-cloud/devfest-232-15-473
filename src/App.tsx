@@ -34,7 +34,7 @@ export default function App() {
   };
 
   const t = {
-    title: lang === 'en' ? 'Nothipath' : 'নথিপাঠ',
+    title: 'নথিপথ — Nothipath',
     uploadJson: lang === 'en' ? 'Start by uploading requirements.json' : 'শুরু করতে requirements.json আপলোড করুন',
     dark: lang === 'en' ? 'Dark Mode' : 'ডার্ক মোড',
     light: lang === 'en' ? 'Light Mode' : 'লাইট মোড',
@@ -604,7 +604,7 @@ export default function App() {
             <div className="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-800 pb-4">
               <h2 className="text-2xl font-bold flex items-center gap-2">
                 <HelpCircle className="w-6 h-6 text-blue-500" />
-                {lang === 'en' ? 'How to Use Nothipath' : 'কীভাবে নথিপাঠ ব্যবহার করবেন'}
+                {lang === 'en' ? 'How to Use নথিপথ — Nothipath' : 'কীভাবে নথিপথ — Nothipath ব্যবহার করবেন'}
               </h2>
               <button onClick={() => setShowGuide(false)} className="text-slate-400 hover:text-red-500 transition-colors">
                 <XCircle className="w-6 h-6" />
