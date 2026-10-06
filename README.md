@@ -5,6 +5,11 @@ Live Application: https://nothipath-one.vercel.app/
 ## Overview
 নথিপথ — Nothipath is a frontend-only web application built for the AI DevFest 2026 Vibe Coding Contest. It is designed to help users prepare, validate, and compile tender document packages based on a standardized JSON requirement list. The application operates entirely in the browser to ensure speed, privacy, and compliance with strict contest rules.
 
+## UI Previews
+![Nothipath UI Overview](screenshots/ui_overview.png)
+<br/>
+![Document Status Matching](screenshots/status_screenshot.png)
+
 ## Core Features
 * Document Requirement Parsing: Upload and parse tender requirements from a structured JSON file.
 * PDF Processing and Validation: Upload multiple PDF documents, extract page counts, and calculate SHA-256 hashes via the Web Crypto API to prevent duplicate uploads.
@@ -18,7 +23,7 @@ Live Application: https://nothipath-one.vercel.app/
 * Export CSV Checklist: One-click export of the entire matched document checklist (including statuses and expiry dates) to a CSV file.
 * Dynamic Index Page: Generates an automatic Index Page right after the cover page, showing the exact page numbers where each document begins inside the final PDF package.
 * PNG Signature Embedding: Users can optionally upload a PNG signature, which is automatically scaled and applied to the top-right corner of every page in the final generated package.
-
+* Save and Reopen Project: Allows users to export their current mapping state (including signature and matches) to a `.nothipath` project file, which can be reloaded later without starting over.
 * Secure AI Assistant: A built-in AI helper using Groq's latest 2026 model (`openai/gpt-oss-120b`, GPT OSS 120B equivalent) that securely accepts the user's own API key via the browser UI to offer tailored, conversational tender submission advice in Bangla, English, and Banglish, perfectly fulfilling contest constraints.
 * Safe Error Handling: Gracefully catches corrupted or password-protected PDFs, showing clean error messages instead of crashing the application.
 
