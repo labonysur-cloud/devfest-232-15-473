@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Moon, Sun, Upload, FileText, CheckCircle2, AlertCircle, XCircle, Download, FileJson } from 'lucide-react';
+import { Moon, Sun, Upload, FileText, CheckCircle2, AlertCircle, XCircle, Download, FileJson, HelpCircle } from 'lucide-react';
 import { RequirementsData, UploadedFile, DocumentMatch, StatusType } from './types';
 import AIAssistant from './AIAssistant';
 
@@ -12,6 +12,7 @@ export default function App() {
   const [matches, setMatches] = useState<DocumentMatch[]>([]);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [signatureData, setSignatureData] = useState<string | null>(null);
+  const [showGuide, setShowGuide] = useState<boolean>(false);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
@@ -203,8 +204,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans transition-colors">
-      <header className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sticky top-0 z-10 shadow-sm">
+    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans transition-colors bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-100 via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900">
+      <header className="border-b border-white/20 dark:border-slate-800/50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-4 sticky top-0 z-10 shadow-sm">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
             <FileText className="w-7 h-7 text-blue-600 dark:text-blue-400" />
@@ -246,6 +247,13 @@ export default function App() {
                 }
               }} />
             </label>
+            <button
+              onClick={() => setShowGuide(true)}
+              className="flex items-center gap-2 px-4 py-1.5 rounded-md bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors"
+            >
+              <HelpCircle className="w-4 h-4" />
+              <span className="hidden sm:inline">{lang === 'en' ? 'Guide' : 'গাইড'}</span>
+            </button>
             <button
               onClick={toggleLang}
               className="px-4 py-1.5 rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
@@ -577,7 +585,7 @@ export default function App() {
                           setErrorMsg(lang === 'en' ? 'Failed to generate PDF package.' : 'PDF প্যাকেজ তৈরি করতে ব্যর্থ হয়েছে।');
                         }
                       }}
-                      className="w-full sm:w-auto px-10 py-4 bg-blue-600 text-white text-lg font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 disabled:shadow-none disabled:cursor-not-allowed transition-all transform hover:-translate-y-0.5 active:translate-y-0"
+                      className="w-full sm:w-auto px-10 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-lg font-bold rounded-xl shadow-xl shadow-blue-600/30 hover:from-blue-700 hover:to-indigo-700 disabled:from-slate-300 disabled:to-slate-300 dark:disabled:from-slate-800 dark:disabled:to-slate-800 disabled:text-slate-500 disabled:shadow-none disabled:cursor-not-allowed transition-all transform hover:-translate-y-1 active:translate-y-0"
                     >
                       {lang === 'en' ? 'Generate & Download PDF Package' : 'PDF প্যাকেজ তৈরি এবং ডাউনলোড করুন'}
                     </button>
@@ -588,6 +596,59 @@ export default function App() {
           </div>
         )}
       </main>
+      
+      {/* User Guide Modal */}
+      {showGuide && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800">
+            <div className="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-800 pb-4">
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <HelpCircle className="w-6 h-6 text-blue-500" />
+                {lang === 'en' ? 'How to Use Nothipath' : 'কীভাবে নথিপাঠ ব্যবহার করবেন'}
+              </h2>
+              <button onClick={() => setShowGuide(false)} className="text-slate-400 hover:text-red-500 transition-colors">
+                <XCircle className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="space-y-6 text-slate-700 dark:text-slate-300">
+              <div className="flex gap-4">
+                <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold flex-shrink-0">1</div>
+                <div>
+                  <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-1">{lang === 'en' ? 'Upload requirements.json' : 'requirements.json আপলোড করুন'}</h3>
+                  <p>{lang === 'en' ? 'Start by uploading the requirements.json file provided in your tender pack. This tells the system exactly which documents are needed.' : 'আপনার টেন্ডার প্যাক থেকে requirements.json ফাইলটি আপলোড করে শুরু করুন। এটি সিস্টেমকে বলে দেয় ঠিক কী কী ডকুমেন্ট লাগবে।'}</p>
+                </div>
+              </div>
+              <div className="flex gap-4">
+                <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold flex-shrink-0">2</div>
+                <div>
+                  <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-1">{lang === 'en' ? 'Upload PDF Documents' : 'PDF ডকুমেন্ট আপলোড করুন'}</h3>
+                  <p>{lang === 'en' ? 'Select all your PDFs. The system will automatically hash them to check for duplicates and filter out invalid files.' : 'সবগুলো PDF একসাথে আপলোড করুন। সিস্টেম স্বয়ংক্রিয়ভাবে চেক করে ডুপ্লিকেট বাদ দিয়ে দেবে।'}</p>
+                </div>
+              </div>
+              <div className="flex gap-4">
+                <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold flex-shrink-0">3</div>
+                <div>
+                  <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-1">{lang === 'en' ? 'Match & Verify' : 'ম্যাচিং এবং যাচাই করুন'}</h3>
+                  <p>{lang === 'en' ? 'Use the dropdowns to match files. The intelligent auto-match will try to do this for you. Enter expiry dates where required!' : 'ড্রপডাউন ব্যবহার করে ফাইলগুলো ম্যাচ করুন। অটো-ম্যাচ সিস্টেম আপনাকে সাহায্য করবে। যেখানে মেয়াদউত্তীর্ণের তারিখ লাগবে সেখানে তারিখ দিন।'}</p>
+                </div>
+              </div>
+              <div className="flex gap-4">
+                <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold flex-shrink-0">4</div>
+                <div>
+                  <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-1">{lang === 'en' ? 'Generate Final Package' : 'প্যাকেজ তৈরি করুন'}</h3>
+                  <p>{lang === 'en' ? 'Once all blocking issues are resolved, click generate. You can also upload a PNG signature to stamp on all pages!' : 'সব সমস্যা সমাধান হলে Generate বাটনে ক্লিক করুন। আপনি চাইলে একটি PNG স্বাক্ষরও আপলোড করতে পারেন যা সব পৃষ্ঠায় যুক্ত হবে!'}</p>
+                </div>
+              </div>
+            </div>
+            <div className="mt-8 pt-4 border-t border-slate-100 dark:border-slate-800 text-center">
+              <button onClick={() => setShowGuide(false)} className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors">
+                {lang === 'en' ? 'Got it, let\'s start!' : 'বুঝতে পেরেছি, চলুন শুরু করি!'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <AIAssistant reqData={reqData} matches={matches} lang={lang} />
     </div>
   );

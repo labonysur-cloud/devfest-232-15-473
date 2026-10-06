@@ -22,15 +22,32 @@ Nothipath is a frontend-only web application built for the AI DevFest 2026 Vibe 
 * Secure AI Assistant: A built-in AI helper using Groq's latest 2026 model (`openai/gpt-oss-120b`, GPT OSS 120B equivalent) that securely accepts the user's own API key via the browser UI to offer tailored, conversational tender submission advice in Bangla, English, and Banglish, perfectly fulfilling contest constraints.
 * Safe Error Handling: Gracefully catches corrupted or password-protected PDFs, showing clean error messages instead of crashing the application.
 
-## Architecture and Technology Stack
-The application follows a strict frontend-only architecture. There is no backend, no external database, and no serverless functions. All document processing, state management, and file merging happen client-side.
+## System Architecture & Flow
+The application follows a strict **frontend-only architecture**. There is no backend, no external database, and no serverless functions. All document processing, state management, and file merging happen entirely within the browser to guarantee maximum security and data privacy.
 
-* Framework: React 18 powered by Vite
-* Language: TypeScript
-* Styling: Tailwind CSS
-* Icons: lucide-react
-* Document Processing: pdf-lib for PDF manipulation
-* Cryptography: Native Web Crypto API for secure SHA-256 hashing
+```mermaid
+flowchart TD
+    A[User Interface<br>React + Tailwind] --> B[Upload requirements.json]
+    B --> C[Parse JSON & Render UI States]
+    A --> D[Upload PDF Documents]
+    D --> E[Native Web Crypto API<br>SHA-256 Hashing]
+    E -->|Check Duplicates| F[Filter Invalid/Duplicate Files]
+    C --> G[Match PDFs to Requirements]
+    F --> G
+    G --> H{Validation Guard}
+    H -->|Missing / Expired / Invalid| I[Block Generation]
+    H -->|All OK| J[Generate Package]
+    J --> K[pdf-lib<br>Generate Cover, Index & Footers]
+    K --> L[Export Final PDF]
+```
+
+### Core Technologies
+* **Framework:** React 18 powered by Vite
+* **Language:** TypeScript
+* **Styling:** Tailwind CSS (with Glassmorphism & Custom Gradients)
+* **Icons:** lucide-react
+* **Document Processing:** `pdf-lib` for advanced PDF merging, pagination, and PNG signature stamping
+* **Cryptography:** Native `window.crypto.subtle.digest` for robust SHA-256 duplicate detection
 
 ## AI Tools and Models Used
 This project was actively vibe-coded and developed utilizing the following AI models and tools to accelerate development and ensure code quality:
