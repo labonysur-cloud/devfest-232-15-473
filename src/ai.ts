@@ -22,7 +22,7 @@ PLATFORM FEATURES YOU MUST KNOW:
 3. Intelligent Auto-Match: Automatically fuzzy matches uploaded PDFs to required documents based on filenames.
 4. Duplicates & Validation: Uses SHA-256 to hash files. Rejects duplicates instantly. Warns if files are missing or expired (checks expiry against submission_deadline).
 5. Bonus - Signature: Users can upload a PNG signature, and it will be stamped on the top-right of every PDF page.
-6. Bonus - Save/Load Project: Users can save their progress into a '.nothipath' file and load it later.
+
 7. Bonus - CSV Export: Exports the matched checklist.
 8. PDF Generation: Combines files into a perfect <tender_id>_Package.pdf with an English cover page, dynamic Index page, and numbered footers (e.g. T-2026-0417 | Page 1 of 5) that don't block content.
 

@@ -212,41 +212,7 @@ export default function App() {
             <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
           </div>
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => {
-                const data = JSON.stringify({ reqData, matches, signatureData });
-                const blob = new Blob([data], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `Project_${reqData?.tender?.tender_id || 'Draft'}.nothipath`;
-                a.click();
-                URL.revokeObjectURL(url);
-              }}
-              className="px-4 py-1.5 rounded-md bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 font-semibold hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors hidden sm:block"
-            >
-              {lang === 'en' ? 'Save Project' : 'প্রজেক্ট সেভ করুন'}
-            </button>
-            <label className="cursor-pointer px-4 py-1.5 rounded-md bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-semibold hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors hidden sm:block">
-              {lang === 'en' ? 'Load Project' : 'প্রজেক্ট লোড করুন'}
-              <input type="file" accept=".nothipath" className="hidden" onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  const reader = new FileReader();
-                  reader.onload = (ev) => {
-                    try {
-                      const data = JSON.parse(ev.target?.result as string);
-                      if (data.reqData) setReqData(data.reqData);
-                      if (data.matches) setMatches(data.matches);
-                      if (data.signatureData) setSignatureData(data.signatureData);
-                    } catch(err) {
-                      setErrorMsg("Failed to load project file.");
-                    }
-                  };
-                  reader.readAsText(file);
-                }
-              }} />
-            </label>
+
             <button
               onClick={() => setShowGuide(true)}
               className="flex items-center gap-2 px-4 py-1.5 rounded-md bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors"
