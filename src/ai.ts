@@ -1,5 +1,5 @@
 export async function askAI(prompt: string, apiKey: string): Promise<string> {
-  const model = "llama-3.1-70b-versatile"; // Using the stronger 70B (approx 120B logic) model for better reasoning
+  const model = "llama-3.3-70b-versatile"; // Updated to current active model
   
   try {
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
