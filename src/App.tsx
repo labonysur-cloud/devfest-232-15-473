@@ -150,15 +150,33 @@ export default function App() {
 
         // Auto-match logic based on filename inclusion
         if (!result.error && !isDuplicate && reqData) {
-            const fileNameLower = file.name.toLowerCase();
-            const possibleMatch = reqData.requirements.find(req => {
+            const fileNameLower = file.name.toLowerCase().replace(/[^a-z0-9]/g, ' ');
+            const fileWords = fileNameLower.split(/\s+/).filter(w => w.length > 2);
+            
+            let bestMatch: any = null;
+            let bestScore = 0;
+
+            reqData.requirements.forEach(req => {
                 const alreadyMatched = matches.some(m => m.requirementId === req.id) || newMatches.some(m => m.requirementId === req.id);
-                if (alreadyMatched) return false;
-                return fileNameLower.includes(req.title_en.toLowerCase());
+                if (alreadyMatched) return;
+                
+                const reqTitleLower = req.title_en.toLowerCase().replace(/[^a-z0-9]/g, ' ');
+                const reqWords = reqTitleLower.split(/\s+/).filter(w => w.length > 2 && w !== 'certificate' && w !== 'proposal');
+                
+                let score = 0;
+                reqWords.forEach(word => {
+                    if (fileWords.includes(word)) score += 2;
+                    else if (fileWords.some(fw => fw.includes(word) || word.includes(fw))) score += 1;
+                });
+
+                if (score > bestScore && score > 0) {
+                    bestScore = score;
+                    bestMatch = req;
+                }
             });
 
-            if (possibleMatch) {
-                newMatches.push({ requirementId: possibleMatch.id, fileId: newFileId });
+            if (bestMatch) {
+                newMatches.push({ requirementId: bestMatch.id, fileId: newFileId });
             }
         }
       }
