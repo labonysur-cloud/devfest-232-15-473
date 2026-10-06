@@ -13,7 +13,7 @@ export async function generatePackage(
 
     // 1. Create Cover Page
     const coverPage = pdfDoc.addPage();
-    const { width, height } = coverPage.getSize();
+    const { height } = coverPage.getSize();
     let y = height - 50;
 
     const drawText = (text: string, font: any, size: number, color = rgb(0, 0, 0)) => {

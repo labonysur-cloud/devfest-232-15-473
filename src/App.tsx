@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Moon, Sun, Upload, FileText, CheckCircle2, AlertCircle, XCircle } from 'lucide-react';
-import { RequirementsData, UploadedFile, DocumentMatch } from './types';
+import { RequirementsData, UploadedFile, DocumentMatch, StatusType } from './types';
 
 export default function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -221,8 +221,7 @@ export default function App() {
               <div className="space-y-4">
                 {reqData.requirements.map(req => {
                   const currentMatch = matches.find(m => m.requirementId === req.id);
-                  const matchedFile = files.find(f => f.id === currentMatch?.fileId);
-                  
+
                   // Calculate Status
                   let status: StatusType = 'Missing';
                   let statusColor = 'text-red-600 bg-red-50 border-red-200';
@@ -374,7 +373,7 @@ export default function App() {
                         const { generatePackage } = await import('./pdf-generator');
                         const pdfBytes = await generatePackage(reqData, files, matches);
                         if (pdfBytes) {
-                          const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+                          const blob = new Blob([pdfBytes as BlobPart], { type: 'application/pdf' });
                           const url = URL.createObjectURL(blob);
                           const a = document.createElement('a');
                           a.href = url;
