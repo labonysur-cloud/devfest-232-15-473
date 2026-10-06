@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Moon, Sun, Upload, FileText, CheckCircle2, AlertCircle, XCircle } from 'lucide-react';
+import { Moon, Sun, Upload, FileText, CheckCircle2, AlertCircle, XCircle, Download, FileJson } from 'lucide-react';
 import { RequirementsData, UploadedFile, DocumentMatch, StatusType } from './types';
 
 export default function App() {
@@ -11,7 +11,6 @@ export default function App() {
   const [matches, setMatches] = useState<DocumentMatch[]>([]);
   const [errorMsg, setErrorMsg] = useState<string>('');
 
-  // Initialize theme from localStorage
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
     if (savedTheme) {
@@ -33,9 +32,11 @@ export default function App() {
 
   const t = {
     title: lang === 'en' ? 'Nothipath' : 'নথিপাঠ',
-    uploadJson: lang === 'en' ? 'Upload requirements.json' : 'requirements.json আপলোড করুন',
+    uploadJson: lang === 'en' ? 'Start by uploading requirements.json' : 'শুরু করতে requirements.json আপলোড করুন',
     dark: lang === 'en' ? 'Dark Mode' : 'ডার্ক মোড',
     light: lang === 'en' ? 'Light Mode' : 'লাইট মোড',
+    heroTitle: lang === 'en' ? 'Tender Document Package Builder' : 'টেন্ডার ডকুমেন্ট প্যাকেজ বিল্ডার',
+    heroSub: lang === 'en' ? 'Automate your tender submission by validating, organizing, and merging your documents securely in your browser.' : 'আপনার ব্রাউজারে নিরাপদে আপনার নথিগুলিকে যাচাই, সংগঠিত এবং একত্রিত করে আপনার দরপত্র জমা দেওয়া স্বয়ংক্রিয় করুন৷'
   };
 
   const handleJsonUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,7 +48,6 @@ export default function App() {
       try {
         const json = JSON.parse(event.target?.result as string);
         if (json.tender && json.requirements) {
-          // Sort by order immediately
           json.requirements.sort((a: any, b: any) => a.order - b.order);
           setReqData(json);
           setErrorMsg('');
@@ -61,19 +61,126 @@ export default function App() {
     reader.readAsText(file);
   };
 
+  const exportCSV = () => {
+    if (!reqData) return;
+    const rows = [
+      ['Document ID', 'Requirement', 'Mandatory', 'File Name', 'Pages', 'Expiry Date', 'Status']
+    ];
+    
+    reqData.requirements.forEach(req => {
+      const match = matches.find(m => m.requirementId === req.id);
+      const file = files.find(f => f.id === match?.fileId);
+      
+      let status = 'Missing';
+      if (!match && !req.mandatory) status = 'Not provided';
+      else if (match) {
+         if (req.has_expiry) {
+             if (!match.expiryDate) status = 'Expiry date needed';
+             else {
+                 const exp = new Date(match.expiryDate);
+                 const dead = new Date(reqData.tender.submission_deadline);
+                 exp.setHours(0,0,0,0); dead.setHours(0,0,0,0);
+                 if (exp < dead) status = 'Expired';
+                 else status = 'OK';
+             }
+         } else {
+             status = 'OK';
+         }
+      }
+      
+      rows.push([
+        req.id,
+        `"${req.title_en}"`,
+        req.mandatory ? 'Yes' : 'No',
+        file ? `"${file.name}"` : 'None',
+        file ? file.pageCount.toString() : '0',
+        match?.expiryDate || 'N/A',
+        status
+      ]);
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `${reqData.tender.tender_id}_Checklist.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const processUploads = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newFiles = Array.from(e.target.files || []);
+    if (!newFiles.length) return;
+    
+    const { processPdfFile } = await import('./utils');
+    const processedFiles: UploadedFile[] = [];
+    const newMatches: DocumentMatch[] = [];
+    
+    for (const file of newFiles) {
+      if (file.type !== 'application/pdf') {
+         processedFiles.push({
+            id: Math.random().toString(36).substring(7),
+            file,
+            name: file.name,
+            pageCount: 0,
+            isDuplicate: false,
+            contentHash: '',
+            error: lang === 'en' ? 'Not a valid PDF file type.' : 'একটি বৈধ PDF ফাইল নয়।'
+         });
+         continue;
+      }
+      
+      const result = await processPdfFile(file);
+      if (result) {
+        const isDuplicate = files.some(f => f.contentHash === result.hash) || 
+                            processedFiles.some(f => f.contentHash === result.hash);
+                            
+        const newFileId = Math.random().toString(36).substring(7);
+        processedFiles.push({
+          id: newFileId,
+          file,
+          name: file.name,
+          pageCount: result.pageCount,
+          isDuplicate,
+          contentHash: result.hash,
+          error: result.error
+        });
+
+        // Auto-match logic based on filename inclusion
+        if (!result.error && !isDuplicate && reqData) {
+            const fileNameLower = file.name.toLowerCase();
+            const possibleMatch = reqData.requirements.find(req => {
+                const alreadyMatched = matches.some(m => m.requirementId === req.id) || newMatches.some(m => m.requirementId === req.id);
+                if (alreadyMatched) return false;
+                return fileNameLower.includes(req.title_en.toLowerCase());
+            });
+
+            if (possibleMatch) {
+                newMatches.push({ requirementId: possibleMatch.id, fileId: newFileId });
+            }
+        }
+      }
+    }
+    setFiles(prev => [...prev, ...processedFiles]);
+    if (newMatches.length > 0) {
+        setMatches(prev => [...prev, ...newMatches]);
+    }
+    e.target.value = '';
+  };
+
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Header */}
-      <header className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sticky top-0 z-10">
+    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans transition-colors">
+      <header className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sticky top-0 z-10 shadow-sm">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <FileText className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-            <h1 className="text-xl font-semibold">{t.title}</h1>
+            <FileText className="w-7 h-7 text-blue-600 dark:text-blue-400" />
+            <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
           </div>
           <div className="flex items-center gap-4">
             <button
               onClick={toggleLang}
-              className="px-3 py-1 rounded-md bg-slate-100 dark:bg-slate-800 font-medium hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+              className="px-4 py-1.5 rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
             >
               {lang === 'en' ? 'বাংলা' : 'English'}
             </button>
@@ -88,110 +195,100 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="flex-grow p-6 max-w-6xl mx-auto w-full">
+      <main className="flex-grow p-6 max-w-6xl mx-auto w-full flex flex-col">
         {errorMsg && (
-          <div className="mb-4 p-4 bg-red-50 text-red-700 border border-red-200 rounded-lg flex items-center gap-2">
-            <AlertCircle className="w-5 h-5" />
-            {errorMsg}
+          <div className="mb-6 p-4 bg-red-50 text-red-700 border border-red-200 rounded-lg flex items-center gap-3 shadow-sm">
+            <AlertCircle className="w-6 h-6 flex-shrink-0" />
+            <span className="font-medium">{errorMsg}</span>
           </div>
         )}
 
         {!reqData ? (
-          <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-12 flex flex-col items-center justify-center text-center bg-white dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
-            <Upload className="w-12 h-12 text-slate-400 mb-4" />
-            <h2 className="text-lg font-medium mb-2">{t.uploadJson}</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
-              {lang === 'en' ? 'Select your requirements.json file to begin' : 'শুরু করতে আপনার requirements.json ফাইলটি নির্বাচন করুন'}
+          <div className="flex-grow flex flex-col items-center justify-center text-center mt-12 mb-20 animate-in fade-in duration-500">
+            <div className="bg-blue-100 dark:bg-blue-900/20 p-4 rounded-full mb-6">
+                <FileJson className="w-16 h-16 text-blue-600 dark:text-blue-400" />
+            </div>
+            <h2 className="text-4xl font-extrabold mb-4 tracking-tight">{t.heroTitle}</h2>
+            <p className="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mb-10 leading-relaxed">
+              {t.heroSub}
             </p>
-            <label className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors">
-              <span>{lang === 'en' ? 'Select File' : 'ফাইল নির্বাচন করুন'}</span>
-              <input type="file" accept=".json" className="hidden" onChange={handleJsonUpload} />
-            </label>
+            <div className="border-2 border-dashed border-blue-300 dark:border-blue-700/50 rounded-2xl p-10 w-full max-w-md bg-white dark:bg-slate-900 shadow-sm hover:shadow-md hover:border-blue-400 transition-all group">
+              <label className="cursor-pointer flex flex-col items-center gap-4">
+                <div className="bg-blue-600 group-hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-semibold transition-colors shadow-sm flex items-center gap-2">
+                    <Upload className="w-5 h-5" />
+                    <span>{t.uploadJson}</span>
+                </div>
+                <input type="file" accept=".json" className="hidden" onChange={handleJsonUpload} />
+                <span className="text-sm text-slate-500 dark:text-slate-400">Supported format: .json</span>
+              </label>
+            </div>
           </div>
         ) : (
-          <div>
-            <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-700 mb-6">
-              <h2 className="text-xl font-semibold mb-4 text-slate-900 dark:text-white">
+          <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
+              <h2 className="text-2xl font-bold mb-6 pb-4 border-b border-slate-100 dark:border-slate-800">
                 {reqData.tender.title}
               </h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div>
-                  <p className="text-slate-500 dark:text-slate-400">{lang === 'en' ? 'Tender ID' : 'দরপত্র আইডি'}</p>
-                  <p className="font-medium">{reqData.tender.tender_id}</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl">
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">{lang === 'en' ? 'Tender ID' : 'দরপত্র আইডি'}</p>
+                  <p className="font-semibold text-lg">{reqData.tender.tender_id}</p>
                 </div>
-                <div>
-                  <p className="text-slate-500 dark:text-slate-400">{lang === 'en' ? 'Entity' : 'সংস্থা'}</p>
-                  <p className="font-medium">{reqData.tender.procuring_entity}</p>
+                <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl">
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">{lang === 'en' ? 'Entity' : 'সংস্থা'}</p>
+                  <p className="font-semibold text-lg">{reqData.tender.procuring_entity}</p>
                 </div>
-                <div>
-                  <p className="text-slate-500 dark:text-slate-400">{lang === 'en' ? 'Bidder' : 'দরদাতা'}</p>
-                  <p className="font-medium">{reqData.tender.bidder}</p>
+                <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl">
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">{lang === 'en' ? 'Bidder' : 'দরদাতা'}</p>
+                  <p className="font-semibold text-lg">{reqData.tender.bidder}</p>
                 </div>
-                <div>
-                  <p className="text-slate-500 dark:text-slate-400">{lang === 'en' ? 'Deadline' : 'শেষ তারিখ'}</p>
-                  <p className="font-medium text-red-600 dark:text-red-400">{reqData.tender.submission_deadline}</p>
+                <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-xl border border-red-100 dark:border-red-900/30">
+                  <p className="text-sm text-red-600 dark:text-red-400 mb-1 font-medium">{lang === 'en' ? 'Submission Deadline' : 'জমা দেওয়ার শেষ তারিখ'}</p>
+                  <p className="font-bold text-lg text-red-700 dark:text-red-400">{reqData.tender.submission_deadline}</p>
                 </div>
               </div>
             </div>
             
-            {/* PDF Upload Section */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-700 mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-                  {lang === 'en' ? 'Uploaded Documents' : 'আপলোড করা নথিপত্র'}
-                </h2>
-                <label className="cursor-pointer bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
-                  <Upload className="w-4 h-4" />
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+                <div>
+                    <h2 className="text-xl font-bold">
+                    {lang === 'en' ? 'Uploaded Documents' : 'আপলোড করা নথিপত্র'}
+                    </h2>
+                    <p className="text-sm text-slate-500 mt-1">
+                        {lang === 'en' ? 'Upload PDFs. Auto-matching is enabled based on file names.' : 'PDF আপলোড করুন। ফাইলের নামের উপর ভিত্তি করে অটো-ম্যাচিং সক্ষম।'}
+                    </p>
+                </div>
+                <label className="cursor-pointer bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-5 py-2.5 rounded-xl font-semibold transition-colors flex items-center gap-2 border border-blue-200 dark:border-blue-800">
+                  <Upload className="w-5 h-5" />
                   <span>{lang === 'en' ? 'Upload PDFs' : 'PDF আপলোড করুন'}</span>
-                  <input type="file" accept=".pdf" multiple className="hidden" onChange={async (e) => {
-                    const newFiles = Array.from(e.target.files || []);
-                    if (!newFiles.length) return;
-                    
-                    const { processPdfFile } = await import('./utils');
-                    const processedFiles: UploadedFile[] = [];
-                    
-                    for (const file of newFiles) {
-                      if (file.type !== 'application/pdf') continue;
-                      
-                      const result = await processPdfFile(file);
-                      if (result) {
-                        // Check for duplicates
-                        const isDuplicate = files.some(f => f.contentHash === result.hash) || 
-                                            processedFiles.some(f => f.contentHash === result.hash);
-                                            
-                        processedFiles.push({
-                          id: Math.random().toString(36).substring(7),
-                          file,
-                          name: file.name,
-                          pageCount: result.pageCount,
-                          isDuplicate,
-                          contentHash: result.hash
-                        });
-                      }
-                    }
-                    setFiles(prev => [...prev, ...processedFiles]);
-                  }} />
+                  <input type="file" accept=".pdf" multiple className="hidden" onChange={processUploads} />
                 </label>
               </div>
 
               {files.length === 0 ? (
-                <div className="text-center py-8 text-slate-500 dark:text-slate-400 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-lg">
-                  {lang === 'en' ? 'No files uploaded yet' : 'এখনও কোনো ফাইল আপলোড করা হয়নি'}
+                <div className="text-center py-12 text-slate-500 dark:text-slate-400 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-800/20">
+                  <Upload className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 mb-3" />
+                  {lang === 'en' ? 'No files uploaded yet. Select files to begin matching.' : 'এখনও কোনো ফাইল আপলোড করা হয়নি। ম্যাচিং শুরু করতে ফাইল নির্বাচন করুন।'}
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {files.map(f => (
-                    <div key={f.id} className={`flex items-center justify-between p-3 rounded-lg border ${f.isDuplicate ? 'border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-900/20' : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50'}`}>
-                      <div className="flex items-center gap-3 overflow-hidden">
-                        <FileText className={`w-5 h-5 flex-shrink-0 ${f.isDuplicate ? 'text-red-500' : 'text-blue-500'}`} />
-                        <div className="truncate">
-                          <p className="text-sm font-medium truncate">{f.name}</p>
-                          <p className="text-xs text-slate-500">
-                            {f.pageCount} {lang === 'en' ? 'pages' : 'পৃষ্ঠা'}
-                            {f.isDuplicate && (
-                              <span className="ml-2 text-red-600 dark:text-red-400 font-semibold">
-                                ({lang === 'en' ? 'Duplicate Content' : 'ডুপ্লিকেট কন্টেন্ট'})
+                    <div key={f.id} className={`flex items-start justify-between p-4 rounded-xl border ${f.error ? 'border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-900/20' : f.isDuplicate ? 'border-orange-300 bg-orange-50 dark:border-orange-800 dark:bg-orange-900/20' : 'border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/50'}`}>
+                      <div className="flex items-start gap-3 overflow-hidden">
+                        <FileText className={`w-6 h-6 flex-shrink-0 mt-0.5 ${f.error ? 'text-red-500' : f.isDuplicate ? 'text-orange-500' : 'text-blue-500'}`} />
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold truncate text-slate-900 dark:text-slate-100" title={f.name}>{f.name}</p>
+                          <p className="text-xs text-slate-500 mt-1">
+                            {!f.error && `${f.pageCount} ${lang === 'en' ? 'pages' : 'পৃষ্ঠা'}`}
+                            {f.error && (
+                              <span className="text-red-600 dark:text-red-400 font-semibold block mt-1">
+                                {f.error}
+                              </span>
+                            )}
+                            {f.isDuplicate && !f.error && (
+                              <span className="text-orange-600 dark:text-orange-400 font-semibold block mt-1">
+                                {lang === 'en' ? 'Duplicate Content' : 'ডুপ্লিকেট কন্টেন্ট'}
                               </span>
                             )}
                           </p>
@@ -202,7 +299,8 @@ export default function App() {
                           setFiles(prev => prev.filter(file => file.id !== f.id));
                           setMatches(prev => prev.filter(m => m.fileId !== f.id));
                         }}
-                        className="p-1 text-slate-400 hover:text-red-500 transition-colors"
+                        className="p-1.5 text-slate-400 hover:bg-white dark:hover:bg-slate-700 hover:text-red-500 rounded-md transition-colors"
+                        title="Remove file"
                       >
                         <XCircle className="w-5 h-5" />
                       </button>
@@ -212,73 +310,79 @@ export default function App() {
               )}
             </div>
 
-            {/* Requirements Matching Section */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-700 mb-6">
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-                {lang === 'en' ? 'Match Documents' : 'নথি মিলান'}
-              </h2>
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100 dark:border-slate-800">
+                <h2 className="text-xl font-bold">
+                    {lang === 'en' ? 'Match Documents' : 'নথি মিলান'}
+                </h2>
+                <button 
+                    onClick={exportCSV}
+                    className="flex items-center gap-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/50 px-4 py-2 rounded-lg transition-colors border border-emerald-200 dark:border-emerald-800"
+                >
+                    <Download className="w-4 h-4" />
+                    {lang === 'en' ? 'Export CSV' : 'CSV এক্সপোর্ট করুন'}
+                </button>
+              </div>
               
               <div className="space-y-4">
                 {reqData.requirements.map(req => {
                   const currentMatch = matches.find(m => m.requirementId === req.id);
 
-                  // Calculate Status
                   let status: StatusType = 'Missing';
-                  let statusColor = 'text-red-600 bg-red-50 border-red-200';
+                  let statusColor = 'text-red-700 bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800/50 dark:text-red-400';
                   
                   if (!currentMatch) {
                     if (!req.mandatory) {
                       status = 'Not provided';
-                      statusColor = 'text-slate-600 bg-slate-50 border-slate-200';
+                      statusColor = 'text-slate-600 bg-slate-100 border-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400';
                     }
                   } else {
                     if (req.has_expiry) {
                       if (!currentMatch.expiryDate) {
                         status = 'Expiry date needed';
-                        statusColor = 'text-orange-600 bg-orange-50 border-orange-200';
+                        statusColor = 'text-orange-700 bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800/50 dark:text-orange-400';
                       } else {
                         const expiry = new Date(currentMatch.expiryDate);
                         const deadline = new Date(reqData.tender.submission_deadline);
-                        // Expiry must be ON or AFTER the submission deadline
                         expiry.setHours(0,0,0,0);
                         deadline.setHours(0,0,0,0);
                         if (expiry < deadline) {
                           status = 'Expired';
-                          statusColor = 'text-red-600 bg-red-50 border-red-200';
+                          statusColor = 'text-red-700 bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800/50 dark:text-red-400';
                         } else {
                           status = 'OK';
-                          statusColor = 'text-emerald-700 bg-emerald-50 border-emerald-200';
+                          statusColor = 'text-emerald-700 bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800/50 dark:text-emerald-400';
                         }
                       }
                     } else {
                       status = 'OK';
-                      statusColor = 'text-emerald-700 bg-emerald-50 border-emerald-200';
+                      statusColor = 'text-emerald-700 bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800/50 dark:text-emerald-400';
                     }
                   }
 
-                  // Available files (not duplicate, and not already matched to another requirement)
                   const availableFiles = files.filter(f => 
                     !f.isDuplicate && 
+                    !f.error &&
                     (!matches.some(m => m.fileId === f.id) || currentMatch?.fileId === f.id)
                   );
 
                   return (
-                    <div key={req.id} className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg">
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-3">
+                    <div key={req.id} className="p-5 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-800/20 hover:border-blue-300 dark:hover:border-blue-700 transition-colors">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
                         <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold">{req.order}. {lang === 'en' ? req.title_en : req.title_bn}</span>
-                            {req.mandatory && <span className="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded-full font-medium">*</span>}
+                          <div className="flex items-center gap-3">
+                            <span className="font-bold text-lg">{req.order}. {lang === 'en' ? req.title_en : req.title_bn}</span>
+                            {req.mandatory && <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 rounded-full font-bold">Required</span>}
                           </div>
                         </div>
-                        <div className={`text-xs px-3 py-1 border rounded-full font-medium ${statusColor} whitespace-nowrap`}>
+                        <div className={`text-xs px-4 py-1.5 border rounded-full font-bold shadow-sm whitespace-nowrap ${statusColor}`}>
                           {status}
                         </div>
                       </div>
                       
-                      <div className="flex flex-col md:flex-row gap-3">
+                      <div className="flex flex-col md:flex-row gap-4 items-center">
                         <select 
-                          className="flex-grow p-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-900 text-sm"
+                          className="w-full md:flex-grow p-3 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow"
                           value={currentMatch?.fileId || ''}
                           onChange={(e) => {
                             const val = e.target.value;
@@ -292,24 +396,29 @@ export default function App() {
                             }
                           }}
                         >
-                          <option value="">-- {lang === 'en' ? 'Select a file' : 'একটি ফাইল নির্বাচন করুন'} --</option>
+                          <option value="">-- {lang === 'en' ? 'Select a matching file' : 'একটি উপযুক্ত ফাইল নির্বাচন করুন'} --</option>
                           {availableFiles.map(f => (
                             <option key={f.id} value={f.id}>{f.name} ({f.pageCount} p)</option>
                           ))}
                         </select>
                         
                         {req.has_expiry && currentMatch && (
-                          <input 
-                            type="date"
-                            className="p-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-900 text-sm w-full md:w-auto"
-                            value={currentMatch.expiryDate || ''}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setMatches(prev => prev.map(m => 
-                                m.requirementId === req.id ? { ...m, expiryDate: val } : m
-                              ));
-                            }}
-                          />
+                          <div className="w-full md:w-auto relative">
+                              <label className="absolute -top-2.5 left-3 bg-white dark:bg-slate-900 px-1 text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                                {lang === 'en' ? 'Expiry Date' : 'মেয়াদোত্তীর্ণ তারিখ'}
+                              </label>
+                              <input 
+                                type="date"
+                                className="p-3 w-full border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow"
+                                value={currentMatch.expiryDate || ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setMatches(prev => prev.map(m => 
+                                    m.requirementId === req.id ? { ...m, expiryDate: val } : m
+                                  ));
+                                }}
+                              />
+                          </div>
                         )}
                       </div>
                     </div>
@@ -318,14 +427,12 @@ export default function App() {
               </div>
             </div>
 
-            {/* Package Generation Section */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-700">
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-                {lang === 'en' ? 'Generate Final Package' : 'চূড়ান্ত প্যাকেজ তৈরি করুন'}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 shadow-sm border border-slate-200 dark:border-slate-800 text-center">
+              <h2 className="text-2xl font-bold mb-6">
+                {lang === 'en' ? 'Finalize & Generate Package' : 'চূড়ান্ত করুন এবং প্যাকেজ তৈরি করুন'}
               </h2>
               
               {(() => {
-                // Determine if there are blocking statuses
                 const blockings: string[] = [];
                 reqData.requirements.forEach(req => {
                   const currentMatch = matches.find(m => m.requirementId === req.id);
@@ -349,21 +456,23 @@ export default function App() {
                 const isBlocked = blockings.length > 0;
 
                 return (
-                  <div className="flex flex-col items-center">
+                  <div className="flex flex-col items-center max-w-2xl mx-auto">
                     {isBlocked ? (
-                      <div className="mb-4 p-4 w-full bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm">
-                        <p className="font-semibold mb-2 flex items-center gap-2">
-                          <AlertCircle className="w-4 h-4" />
-                          {lang === 'en' ? 'Cannot generate package due to the following errors:' : 'নিচের ত্রুটিগুলির কারণে প্যাকেজ তৈরি করা যাচ্ছে না:'}
+                      <div className="mb-8 p-5 w-full bg-red-50 dark:bg-red-900/10 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-900/30 rounded-xl text-left">
+                        <p className="font-bold mb-3 flex items-center gap-2 text-base">
+                          <AlertCircle className="w-5 h-5" />
+                          {lang === 'en' ? 'Action Required Before Generation:' : 'প্যাকেজ তৈরির আগে প্রয়োজনীয় কাজ:'}
                         </p>
-                        <ul className="list-disc pl-5 space-y-1">
+                        <ul className="list-disc pl-6 space-y-1.5 text-sm font-medium">
                           {blockings.map((b, i) => <li key={i}>{b}</li>)}
                         </ul>
                       </div>
                     ) : (
-                      <div className="mb-4 p-4 w-full bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-sm flex items-center gap-2">
-                        <CheckCircle2 className="w-5 h-5" />
-                        {lang === 'en' ? 'All requirements met! Ready to generate.' : 'সব প্রয়োজনীয়তা পূরণ হয়েছে! তৈরি করতে প্রস্তুত।'}
+                      <div className="mb-8 p-5 w-full bg-emerald-50 dark:bg-emerald-900/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/30 rounded-xl text-center flex flex-col items-center justify-center gap-3">
+                        <div className="bg-emerald-100 dark:bg-emerald-900/50 p-3 rounded-full">
+                            <CheckCircle2 className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
+                        </div>
+                        <span className="font-bold text-lg">{lang === 'en' ? 'All requirements met! Ready to generate.' : 'সব প্রয়োজনীয়তা পূরণ হয়েছে! তৈরি করতে প্রস্তুত।'}</span>
                       </div>
                     )}
 
@@ -384,9 +493,9 @@ export default function App() {
                           setErrorMsg(lang === 'en' ? 'Failed to generate PDF package.' : 'PDF প্যাকেজ তৈরি করতে ব্যর্থ হয়েছে।');
                         }
                       }}
-                      className="px-8 py-3 bg-blue-600 text-white font-medium rounded-lg shadow-sm hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed transition-colors"
+                      className="w-full sm:w-auto px-10 py-4 bg-blue-600 text-white text-lg font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 disabled:shadow-none disabled:cursor-not-allowed transition-all transform hover:-translate-y-0.5 active:translate-y-0"
                     >
-                      {lang === 'en' ? 'Generate & Download Package' : 'প্যাকেজ তৈরি এবং ডাউনলোড করুন'}
+                      {lang === 'en' ? 'Generate & Download PDF Package' : 'PDF প্যাকেজ তৈরি এবং ডাউনলোড করুন'}
                     </button>
                   </div>
                 );

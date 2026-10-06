@@ -27,6 +27,7 @@ export interface UploadedFile {
   pageCount: number;
   isDuplicate: boolean;
   contentHash: string; // for duplicate detection
+  error?: string;
 }
 
 export interface DocumentMatch {

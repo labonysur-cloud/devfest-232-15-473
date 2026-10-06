@@ -13,7 +13,7 @@ export async function generatePackage(
 
     // 1. Create Cover Page
     const coverPage = pdfDoc.addPage();
-    const { height } = coverPage.getSize();
+    const { height, width } = coverPage.getSize();
     let y = height - 50;
 
     const drawText = (text: string, font: any, size: number, color = rgb(0, 0, 0)) => {
@@ -50,35 +50,72 @@ export async function generatePackage(
       drawText(`${i + 1}. ${req.title_en}`, timesRomanFont, 12);
     }
 
-    // 2. Append matched documents
-    for (const { file } of validMatches) {
+    // 2. Create Index Page
+    const indexPage = pdfDoc.addPage();
+    let indexY = height - 50;
+    
+    indexPage.drawText('INDEX', { x: 50, y: indexY, size: 24, font: timesRomanBold });
+    indexY -= 40;
+    
+    indexPage.drawText('Document Name', { x: 50, y: indexY, size: 14, font: timesRomanBold });
+    indexPage.drawText('Page Number', { x: width - 150, y: indexY, size: 14, font: timesRomanBold });
+    indexY -= 20;
+
+    // To keep track of where we draw the index info
+    const indexEntries: { text: string; pageStr: string; yPos: number }[] = [];
+    
+    // We know cover page = page 1, index page = page 2.
+    // The first document starts at page 3.
+    let currentPagePointer = 3;
+
+    // 3. Append matched documents
+    for (const { req, file } of validMatches) {
       if (!file) continue;
+      
+      // Save index entry info
+      indexEntries.push({
+        text: `${req.order}. ${req.title_en}`,
+        pageStr: currentPagePointer.toString(),
+        yPos: indexY
+      });
+      indexY -= 20;
+
       const arrayBuffer = await file.file.arrayBuffer();
       const donorPdf = await PDFDocument.load(arrayBuffer);
       const copiedPages = await pdfDoc.copyPages(donorPdf, donorPdf.getPageIndices());
-      copiedPages.forEach(page => pdfDoc.addPage(page));
+      
+      copiedPages.forEach(page => {
+        pdfDoc.addPage(page);
+        currentPagePointer++;
+      });
     }
 
-    // 3. Add footer to every page (including cover)
+    // Draw the index entries now that we know they are processed
+    for (const entry of indexEntries) {
+        indexPage.drawText(entry.text, { x: 50, y: entry.yPos, size: 12, font: timesRomanFont });
+        indexPage.drawText(entry.pageStr, { x: width - 120, y: entry.yPos, size: 12, font: timesRomanFont });
+    }
+
+    // 4. Add footer to every page (including cover and index)
     const totalPages = pdfDoc.getPageCount();
     for (let i = 0; i < totalPages; i++) {
       const page = pdfDoc.getPage(i);
-      const { width } = page.getSize();
+      const { width: pWidth } = page.getSize();
       const footerText = `${reqData.tender.tender_id} | Page ${i + 1} of ${totalPages}`;
       const textWidth = timesRomanFont.widthOfTextAtSize(footerText, 10);
       
       // Draw a small white rectangle behind the text so it's readable over content
       page.drawRectangle({
-        x: (width / 2) - (textWidth / 2) - 5,
+        x: (pWidth / 2) - (textWidth / 2) - 5,
         y: 15,
         width: textWidth + 10,
         height: 15,
         color: rgb(1, 1, 1),
-        opacity: 0.8
+        opacity: 0.9
       });
 
       page.drawText(footerText, {
-        x: width / 2 - textWidth / 2,
+        x: pWidth / 2 - textWidth / 2,
         y: 20,
         size: 10,
         font: timesRomanFont,
