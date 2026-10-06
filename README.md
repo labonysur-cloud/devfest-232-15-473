@@ -23,6 +23,13 @@ The application follows a strict frontend-only architecture. There is no backend
 * Document Processing: pdf-lib for PDF manipulation
 * Cryptography: Native Web Crypto API for secure SHA-256 hashing
 
+## AI Tools and Models Used
+This project was actively vibe-coded and developed utilizing the following AI models and tools to accelerate development and ensure code quality:
+* Antigravity
+* Cursor
+* ChatGPT
+* Gemini
+
 ## Local Setup Instructions
 1. Clone the repository to your local machine.
 2. Run 'npm install' to install required dependencies.
